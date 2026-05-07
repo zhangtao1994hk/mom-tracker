@@ -2,7 +2,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 1. 微信验证 (保持在最上方)
+    // 1. 微信验证 (最高优先级)
     if (url.pathname === '/b503db5520ef5f24978fd0550e16f0a1.txt') {
       return new Response('766e26a03b73abdbb6368912ba490aea025c3b85', {
         status: 200,
@@ -55,50 +55,61 @@ export default {
             <link rel="stylesheet" href="https://cdn.staticfile.net/leaflet/1.9.4/leaflet.css" />
             <script src="https://cdn.staticfile.net/leaflet/1.9.4/leaflet.js"></script>
             <style>
-                body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; }
-                #map { height: 100vh; width: 100%; position: absolute; top: 0; left: 0; }
+                body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; background: #f0f2f5; }
+                #map { height: 100vh; width: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+                
+                /* 顶部信息面板 */
                 #info {
                     position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-                    z-index: 1000; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
-                    padding: 12px 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-                    border-radius: 50px; min-width: 260px;
+                    z-index: 1000; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px);
+                    padding: 12px 20px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+                    border-radius: 30px; min-width: 240px; border: 1px solid rgba(255,255,255,0.3);
                 }
-                h3 { margin: 0 0 8px 0; color: #ff6b6b; font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+                h3 { margin: 0 0 8px 0; color: #ff6b6b; font-size: 18px; }
                 .details { margin: 2px 0; font-size: 12px; color: #555; display: flex; justify-content: center; gap: 10px; }
 
-                /* Tooltip 基础样式 */
+                /* 标签与 Tooltip */
                 .tag {
-                    position: relative; background: #f0f4f8; padding: 4px 12px; border-radius: 12px;
+                    position: relative; background: rgba(0, 122, 255, 0.08); padding: 4px 12px; border-radius: 12px;
                     color: #007aff; font-weight: bold; cursor: pointer; display: inline-block;
-                    -webkit-user-select: none;
+                    -webkit-user-select: none; transition: all 0.2s;
                 }
-                .tag.home { color: #ff8c00; background: #fff3e0; }
-                .tag.car { color: #28a745; background: #e8f5e9; }
+                .tag.home { color: #ff8c00; background: rgba(255, 140, 0, 0.1); }
+                .tag.car { color: #28a745; background: rgba(40, 167, 69, 0.1); }
 
                 .tag::after {
-                    content: attr(data-tip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
-                    background: rgba(0, 0, 0, 0.8); color: #fff; padding: 6px 10px; border-radius: 8px;
-                    font-size: 11px; white-space: nowrap; visibility: hidden; opacity: 0; transition: opacity 0.2s; z-index: 2000; pointer-events: none;
+                    content: attr(data-tip); position: absolute; bottom: 135%; left: 50%; transform: translateX(-50%);
+                    background: rgba(0, 0, 0, 0.75); color: #fff; padding: 6px 12px; border-radius: 8px;
+                    font-size: 11px; white-space: nowrap; visibility: hidden; opacity: 0; transition: 0.2s; z-index: 2000;
                 }
                 .tag::before {
-                    content: ""; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
-                    border: 6px solid transparent; border-top-color: rgba(0, 0, 0, 0.8); visibility: hidden; opacity: 0; transition: opacity 0.2s;
+                    content: ""; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
+                    border: 6px solid transparent; border-top-color: rgba(0, 0, 0, 0.75); visibility: hidden; opacity: 0; transition: 0.2s;
                 }
                 @media (hover: hover) { .tag:hover::after, .tag:hover::before { visibility: visible; opacity: 1; } }
                 .tag:active::after, .tag:active::before { visibility: visible; opacity: 1; }
 
-                /* 刷新按钮动画 */
-                #refresh-btn { cursor: pointer; transition: transform 0.3s; padding: 4px; line-height: 1; }
-                #refresh-btn.rotating { animation: rotate 0.8s linear infinite; }
+                /* 左下角悬浮刷新按钮 */
+                #refresh-container {
+                    position: absolute; bottom: 30px; left: 20px; z-index: 1000;
+                }
+                .fab-btn {
+                    width: 48px; height: 48px; border-radius: 24px;
+                    background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
+                    display: flex; align-items: center; justify-content: center;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: none; cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+                .fab-btn:active { transform: scale(0.9); background: #eee; }
+                .fab-btn svg { width: 22px; height: 22px; fill: #555; }
+                
+                .rotating svg { animation: rotate 0.8s linear infinite; }
                 @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             </style>
         </head>
         <body>
             <div id="info">
-                <h3>
-                    <span id="title-text">妈妈，我在这里！✨</span>
-                    <span id="refresh-btn" onclick="fetchLocation(true)">🔄</span>
-                </h3>
+                <h3 id="city-title">妈妈，我在这里！✨</h3>
                 <div class="details">
                     <span id="time-tag" class="tag" data-tip="上报时间">🕒 获取中...</span>
                     <span id="weather-tag" class="tag" style="display:none;" data-tip="当地天气">⛅</span>
@@ -108,6 +119,13 @@ export default {
                     <span id="car-tag" class="tag car" style="display:none;" data-tip="车辆状态">🚙</span>
                 </div>
             </div>
+
+            <div id="refresh-container">
+                <button class="fab-btn" id="refresh-btn" onclick="fetchLocation(true)">
+                    <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                </button>
+            </div>
+
             <div id="map"></div>
             <script>
                 const map = L.map('map', { zoomControl: false }).setView([39.9042, 116.4074], 12);
@@ -118,11 +136,9 @@ export default {
 
                 let lastEmojiIndex = -1;
                 function getRandomEmoji() {
-                    const emojis = ["🥰", "😜", "😈", "😏", "🤣", "😆", "😘", "😎", "🥳", "🤪"];
+                    const emojis = ["🥰", "😜", "😋", "😏", "🤣", "😆", "😘", "😎", "🥳", "🤪"];
                     let newIndex;
-                    do {
-                        newIndex = Math.floor(Math.random() * emojis.length);
-                    } while (newIndex === lastEmojiIndex);
+                    do { newIndex = Math.floor(Math.random() * emojis.length); } while (newIndex === lastEmojiIndex);
                     lastEmojiIndex = newIndex;
                     return emojis[newIndex];
                 }
@@ -135,7 +151,6 @@ export default {
                         const res = await fetch('/api/location');
                         const data = await res.json();
 
-                        // 气温与表情逻辑
                         let emoji = getRandomEmoji();
                         if (data.weather) {
                             const tempMatch = data.weather.match(/-?\\d+/);
@@ -147,11 +162,11 @@ export default {
                             const wEl = document.getElementById('weather-tag');
                             wEl.style.display = 'inline-block';
                             wEl.innerText = "⛅ " + data.weather;
-                            wEl.setAttribute('data-tip', "天气：" + data.weather);
+                            wEl.setAttribute('data-tip', "当前天气：" + data.weather);
                         }
 
                         if (data.city) {
-                            document.getElementById('title-text').innerText = "妈妈，我在" + data.city + "！" + emoji;
+                            document.getElementById('city-title').innerText = "妈妈，我在" + data.city + "！" + emoji;
                         }
 
                         const timeVal = (data.time && data.time.includes(' ')) ? data.time.split(' ')[1] : (data.time || "未知");
