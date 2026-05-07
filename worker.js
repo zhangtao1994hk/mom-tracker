@@ -2,7 +2,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 1. 微信验证 (保持不变)
+    // 1. 微信验证 (保持在最上方)
     if (url.pathname === '/b503db5520ef5f24978fd0550e16f0a1.txt') {
       return new Response('766e26a03b73abdbb6368912ba490aea025c3b85', {
         status: 200,
@@ -15,7 +15,7 @@ export default {
 
     const TK = env.TIANDITU_KEY;
 
-    // 2. 数据上传 (保持不变)
+    // 2. 数据上传 (POST /update)
     if (request.method === 'POST' && url.pathname === '/update') {
       const body = await request.json();
       const { token, lat, lng, message, city, weather, distance, car_battery } = body;
@@ -35,14 +35,14 @@ export default {
       return new Response(JSON.stringify({ success: true, data }), { headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 3. 数据查询 (保持不变)
+    // 3. 数据查询 (GET /api/location)
     if (request.method === 'GET' && url.pathname === '/api/location') {
       const dataStr = await env.MOM_DATA.get("latest_location");
       if (!dataStr) return new Response(JSON.stringify({ lat: 39.9042, lng: 116.4074, time: "等待打卡...", message: "暂无数据", city: "这里" }), { headers: { 'Content-Type': 'application/json' } });
       return new Response(dataStr, { headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 4. 地图展示
+    // 4. 地图展示主页面
     if (request.method === 'GET' && url.pathname === '/') {
       const html = `
         <!DOCTYPE html>
@@ -61,11 +61,12 @@ export default {
                     position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
                     z-index: 1000; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
                     padding: 12px 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-                    border-radius: 50px; min-width: 240px;
+                    border-radius: 50px; min-width: 260px;
                 }
-                h3 { margin: 0 0 8px 0; color: #ff6b6b; font-size: 18px; }
+                h3 { margin: 0 0 8px 0; color: #ff6b6b; font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 8px; }
                 .details { margin: 2px 0; font-size: 12px; color: #555; display: flex; justify-content: center; gap: 10px; }
 
+                /* Tooltip 基础样式 */
                 .tag {
                     position: relative; background: #f0f4f8; padding: 4px 12px; border-radius: 12px;
                     color: #007aff; font-weight: bold; cursor: pointer; display: inline-block;
@@ -85,18 +86,26 @@ export default {
                 }
                 @media (hover: hover) { .tag:hover::after, .tag:hover::before { visibility: visible; opacity: 1; } }
                 .tag:active::after, .tag:active::before { visibility: visible; opacity: 1; }
+
+                /* 刷新按钮动画 */
+                #refresh-btn { cursor: pointer; transition: transform 0.3s; padding: 4px; line-height: 1; }
+                #refresh-btn.rotating { animation: rotate 0.8s linear infinite; }
+                @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             </style>
         </head>
         <body>
             <div id="info">
-                <h3 id="city-title">妈妈，我在这里！✨</h3>
+                <h3>
+                    <span id="title-text">妈妈，我在这里！✨</span>
+                    <span id="refresh-btn" onclick="fetchLocation(true)">🔄</span>
+                </h3>
                 <div class="details">
-                    <span id="time-tag" class="tag" data-tip="最后上报位置的时间">🕒 获取中...</span>
-                    <span id="weather-tag" class="tag" style="display:none;" data-tip="这里的实时天气">⛅</span>
-                    <span id="distance-tag" class="tag home" style="display:none;" data-tip="我离家的直线距离">🏠 离家</span>
+                    <span id="time-tag" class="tag" data-tip="上报时间">🕒 获取中...</span>
+                    <span id="weather-tag" class="tag" style="display:none;" data-tip="当地天气">⛅</span>
+                    <span id="distance-tag" class="tag home" style="display:none;" data-tip="离家距离">🏠 离家</span>
                 </div>
                 <div class="details">
-                    <span id="car-tag" class="tag car" style="display:none;" data-tip="小车的电量或状态">🚙</span>
+                    <span id="car-tag" class="tag car" style="display:none;" data-tip="车辆状态">🚙</span>
                 </div>
             </div>
             <div id="map"></div>
@@ -107,16 +116,26 @@ export default {
 
                 let marker = L.marker([39.9042, 116.4074]).addTo(map);
 
+                let lastEmojiIndex = -1;
                 function getRandomEmoji() {
-                    const emojis = ["🥰", "😜", "😈", "😏", "🤣", "🌊", "😘", "😎", "🥳", "🤪"];
-                    return emojis[Math.floor(Math.random() * emojis.length)];
+                    const emojis = ["🥰", "😜", "😈", "😏", "🤣", "😆", "😘", "😎", "🥳", "🤪"];
+                    let newIndex;
+                    do {
+                        newIndex = Math.floor(Math.random() * emojis.length);
+                    } while (newIndex === lastEmojiIndex);
+                    lastEmojiIndex = newIndex;
+                    return emojis[newIndex];
                 }
 
-                async function fetchLocation() {
+                async function fetchLocation(isManual = false) {
+                    const btn = document.getElementById('refresh-btn');
+                    if (isManual) btn.classList.add('rotating');
+
                     try {
                         const res = await fetch('/api/location');
                         const data = await res.json();
 
+                        // 气温与表情逻辑
                         let emoji = getRandomEmoji();
                         if (data.weather) {
                             const tempMatch = data.weather.match(/-?\\d+/);
@@ -128,16 +147,16 @@ export default {
                             const wEl = document.getElementById('weather-tag');
                             wEl.style.display = 'inline-block';
                             wEl.innerText = "⛅ " + data.weather;
-                            wEl.setAttribute('data-tip', "这里现在的天气是");
+                            wEl.setAttribute('data-tip', "天气：" + data.weather);
                         }
 
                         if (data.city) {
-                            document.getElementById('city-title').innerText = "妈妈，我在" + data.city + "！" + emoji;
+                            document.getElementById('title-text').innerText = "妈妈，我在" + data.city + "！" + emoji;
                         }
 
                         const timeVal = (data.time && data.time.includes(' ')) ? data.time.split(' ')[1] : (data.time || "未知");
                         document.getElementById('time-tag').innerText = "🕒 " + timeVal;
-                        document.getElementById('time-tag').setAttribute('data-tip', "上报时间");
+                        document.getElementById('time-tag').setAttribute('data-tip', "更新于：" + (data.time || "未知"));
 
                         if (data.distance) {
                             const dEl = document.getElementById('distance-tag');
@@ -148,13 +167,13 @@ export default {
                                 displayStr = (rawNum <= 0.05) ? "已到家 🎉" : (rawNum < 1 ? (rawNum * 1000).toFixed(0) + " 米" : rawNum.toFixed(1) + " 公里");
                             }
                             dEl.innerText = "🏠 " + displayStr;
-                            dEl.setAttribute('data-tip', "离家距离" );
+                            dEl.setAttribute('data-tip', "距离家里：" + displayStr);
                         }
                         if (data.car_battery) {
                             const cEl = document.getElementById('car-tag');
                             cEl.style.display = 'inline-block';
                             cEl.innerText = "🚙 " + data.car_battery;
-                            cEl.setAttribute('data-tip', "车辆状态" );
+                            cEl.setAttribute('data-tip', "车辆电量/状态：" + data.car_battery);
                         }
 
                         if (data.lat && data.lng) {
@@ -163,6 +182,9 @@ export default {
                             map.setView([lat, lng], 13);
                         }
                     } catch (e) { console.error(e); }
+                    finally {
+                        if (isManual) setTimeout(() => btn.classList.remove('rotating'), 600);
+                    }
                 }
 
                 fetchLocation();
