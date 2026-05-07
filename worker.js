@@ -128,7 +128,7 @@ export default {
                             const wEl = document.getElementById('weather-tag');
                             wEl.style.display = 'inline-block';
                             wEl.innerText = "⛅ " + data.weather;
-                            wEl.setAttribute('data-tip', "这里现在的天气是 " + data.weather);
+                            wEl.setAttribute('data-tip', "这里现在的天气是");
                         }
 
                         if (data.city) {
@@ -137,7 +137,7 @@ export default {
 
                         const timeVal = (data.time && data.time.includes(' ')) ? data.time.split(' ')[1] : (data.time || "未知");
                         document.getElementById('time-tag').innerText = "🕒 " + timeVal;
-                        document.getElementById('time-tag').setAttribute('data-tip', "上报时间：" + (data.time || "未知"));
+                        document.getElementById('time-tag').setAttribute('data-tip', "上报时间");
 
                         if (data.distance) {
                             const dEl = document.getElementById('distance-tag');
@@ -148,13 +148,13 @@ export default {
                                 displayStr = (rawNum <= 0.05) ? "已到家 🎉" : (rawNum < 1 ? (rawNum * 1000).toFixed(0) + " 米" : rawNum.toFixed(1) + " 公里");
                             }
                             dEl.innerText = "🏠 " + displayStr;
-                            dEl.setAttribute('data-tip', "离家距离：" + displayStr);
+                            dEl.setAttribute('data-tip', "离家距离" );
                         }
                         if (data.car_battery) {
                             const cEl = document.getElementById('car-tag');
                             cEl.style.display = 'inline-block';
                             cEl.innerText = "🚙 " + data.car_battery;
-                            cEl.setAttribute('data-tip', "车辆状态：" + data.car_battery);
+                            cEl.setAttribute('data-tip', "车辆状态" );
                         }
 
                         if (data.lat && data.lng) {
